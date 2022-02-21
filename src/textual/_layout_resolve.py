@@ -25,12 +25,14 @@ class EdgeProtocol(Protocol):
 
 @dataclass
 class Edge:
+    """A concrete class exposing EdgeProtocol."""
+
     size: int | None = None
     fraction: int | None = 1
     min_size: int = 1
 
 
-def layout_resolve(total: int, edges: Sequence[EdgeProtocol]) -> List[int]:
+def layout_resolve(total: int, edges: Sequence[EdgeProtocol]) -> list[int]:
     """Divide total space to satisfy size, fraction, and min_size, constraints.
 
     The returned list of integers should add up to total in most cases, unless it is
