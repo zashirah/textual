@@ -12,7 +12,7 @@ else:
 import pytest
 
 from sandbox.vertical_container import VerticalContainer
-from tests.utilities.test_app import AppTest, accelerate_time_for_textual_timers
+from tests.utilities.test_app import AppTest
 from textual.app import ComposeResult
 from textual.geometry import Size
 from textual.widget import Widget
@@ -21,7 +21,6 @@ from textual.widgets import Placeholder
 SCREEN_SIZE = Size(100, 30)
 
 
-@pytest.mark.skip("flaky test")
 @pytest.mark.asyncio
 @pytest.mark.integration_test  # this is a slow test, we may want to skip them in some contexts
 @pytest.mark.parametrize(
@@ -48,7 +47,7 @@ SCREEN_SIZE = Size(100, 30)
         # The state of the screen at this "halfway there" timing looks to not be deterministic though,
         # depending on the environment - so let's only assert stuff for the middle placeholders
         # and the first and last ones, but without being too specific about the others:
-        [SCREEN_SIZE, 10, "placeholder_9", True, 0.1, (5, 6, 7), (1, 2, 9)],
+        [SCREEN_SIZE, 10, "placeholder_9", True, 0.1, (6, 7, 8), (1, 2, 5, 9)],
     ),
 )
 async def test_scroll_to_widget(
@@ -78,22 +77,15 @@ async def test_scroll_to_widget(
 
     app = MyTestApp(size=screen_size, test_name="scroll_to_widget")
 
-    time_acceleration_factor = 10
-    with accelerate_time_for_textual_timers(
-        acceleration_factor=time_acceleration_factor
-    ):
-        waiting_duration = (
-            waiting_duration / time_acceleration_factor if waiting_duration else 0
-        )
-        async with app.in_running_state(waiting_duration_post_yield=waiting_duration):
-            if scroll_to_placeholder_id:
-                target_widget_container = cast(Widget, app.query("#root").first())
-                target_widget = cast(
-                    Widget, app.query(f"#{scroll_to_placeholder_id}").first()
-                )
-                target_widget_container.scroll_to_widget(
-                    target_widget, animate=scroll_to_animate
-                )
+    async with app.in_running_state(waiting_duration_post_yield=waiting_duration or 0):
+        if scroll_to_placeholder_id:
+            target_widget_container = cast(Widget, app.query("#root").first())
+            target_widget = cast(
+                Widget, app.query(f"#{scroll_to_placeholder_id}").first()
+            )
+            target_widget_container.scroll_to_widget(
+                target_widget, animate=scroll_to_animate
+            )
 
     last_display_capture = app.last_display_capture
 
@@ -101,7 +93,7 @@ async def test_scroll_to_widget(
         id_: f"placeholder_{id_}" in last_display_capture
         for id_ in range(placeholders_count)
     }
-
+    print(f"placeholders_visibility_by_id={placeholders_visibility_by_id}")
     # Let's start by checking placeholders that should be visible:
     for placeholder_id in last_screen_expected_placeholder_ids:
         assert (
