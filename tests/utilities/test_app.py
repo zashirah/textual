@@ -3,13 +3,17 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import io
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import AsyncContextManager, cast
+from time import monotonic
+from typing import AsyncContextManager, cast, ContextManager
+from unittest import mock
 
 from rich.console import Console
 
 from textual import events
-from textual.app import App, ReturnType, ComposeResult
+from textual._timer import Timer
+from textual.app import App, ComposeResult
 from textual.driver import Driver
 from textual.geometry import Size
 
@@ -57,6 +61,18 @@ class AppTest(App):
         raise NotImplementedError(
             "Create a subclass of TestApp and override its `compose()` method, rather than using TestApp directly"
         )
+
+    #
+    # def set_clock_time_and_tick_timers(
+    #     self, *, clock_time: datetime, timer_get_time_mock: mock.Mock
+    # ) -> None:
+    #     """
+    #     Set a new return value for the given `Timer.get_time()`method,
+    #     then calls every Timer instance's `_tick()` method (i.e. triggers them).
+    #     """
+    #     timer_get_time_mock.return_value = clock_time.timestamp()
+    #     for timer_instance in Timer._instances:
+    #         timer_instance._tick()
 
     def in_running_state(
         self,
@@ -177,3 +193,29 @@ class DriverTest(Driver):
 
     def stop_application_mode(self) -> None:
         pass
+
+
+def accelerate_time_for_textual_timers(
+    *, acceleration_factor: float = 10
+) -> ContextManager:
+    @contextlib.contextmanager
+    def accelerate_time_for_timer_context_manager():
+        starting_time = monotonic()
+        # Our replacement for "textual._timer.Timer._sleep":
+        async def timer_sleep(duration: float) -> None:
+            await asyncio.sleep(duration / acceleration_factor)
+
+        # Our replacement for "textual._timer.Timer.get_time":
+        def timer_get_time() -> float:
+            real_now = monotonic()
+            real_elapsed_time = real_now - starting_time
+            return starting_time + (real_elapsed_time * acceleration_factor)
+
+        with mock.patch("textual._timer.Timer._sleep") as timer_sleep_mock, mock.patch(
+            "textual._timer.Timer.get_time"
+        ) as timer_get_time_mock:
+            timer_sleep_mock.side_effect = timer_sleep
+            timer_get_time_mock.side_effect = timer_get_time
+            yield
+
+    return accelerate_time_for_timer_context_manager()

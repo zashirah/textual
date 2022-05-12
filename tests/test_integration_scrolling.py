@@ -12,7 +12,7 @@ else:
 import pytest
 
 from sandbox.vertical_container import VerticalContainer
-from tests.utilities.test_app import AppTest
+from tests.utilities.test_app import AppTest, accelerate_time_for_textual_timers
 from textual.app import ComposeResult
 from textual.geometry import Size
 from textual.widget import Widget
@@ -78,15 +78,22 @@ async def test_scroll_to_widget(
 
     app = MyTestApp(size=screen_size, test_name="scroll_to_widget")
 
-    async with app.in_running_state(waiting_duration_post_yield=waiting_duration or 0):
-        if scroll_to_placeholder_id:
-            target_widget_container = cast(Widget, app.query("#root").first())
-            target_widget = cast(
-                Widget, app.query(f"#{scroll_to_placeholder_id}").first()
-            )
-            target_widget_container.scroll_to_widget(
-                target_widget, animate=scroll_to_animate
-            )
+    time_acceleration_factor = 10
+    with accelerate_time_for_textual_timers(
+        acceleration_factor=time_acceleration_factor
+    ):
+        waiting_duration = (
+            waiting_duration / time_acceleration_factor if waiting_duration else 0
+        )
+        async with app.in_running_state(waiting_duration_post_yield=waiting_duration):
+            if scroll_to_placeholder_id:
+                target_widget_container = cast(Widget, app.query("#root").first())
+                target_widget = cast(
+                    Widget, app.query(f"#{scroll_to_placeholder_id}").first()
+                )
+                target_widget_container.scroll_to_widget(
+                    target_widget, animate=scroll_to_animate
+                )
 
     last_display_capture = app.last_display_capture
 
