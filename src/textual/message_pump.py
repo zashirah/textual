@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import weakref
 from asyncio import CancelledError
 from asyncio import PriorityQueue, QueueEmpty, Task
 from functools import partial, total_ordering
@@ -52,6 +53,8 @@ class MessagePriority:
 
 
 class MessagePump:
+    _instances: weakref.WeakSet[MessagePump] = weakref.WeakSet()
+
     def __init__(self, parent: MessagePump | None = None) -> None:
         self._message_queue: PriorityQueue[MessagePriority] = PriorityQueue()
         self._parent = parent
@@ -62,6 +65,7 @@ class MessagePump:
         self._pending_message: Message | None = None
         self._task: Task | None = None
         self._child_tasks: WeakSet[Task] = WeakSet()
+        MessagePump._instances.add(self)
 
     @property
     def task(self) -> Task:
@@ -75,7 +79,10 @@ class MessagePump:
     @property
     def app(self) -> "App":
         """Get the current app."""
-        return active_app.get()
+        try:
+            return active_app.get()
+        except LookupError as err:
+            t = 1
 
     @property
     def is_parent_active(self):
@@ -152,7 +159,13 @@ class MessagePump:
         pause: bool = False,
     ) -> Timer:
         timer = Timer(
-            self, delay, self, name=name, callback=callback, repeat=0, pause=pause
+            self,
+            delay,
+            self,
+            name=name or f"set_timer#{Timer._timer_count}",
+            callback=callback,
+            repeat=0,
+            pause=pause,
         )
         self._child_tasks.add(timer.start())
         return timer
@@ -170,7 +183,7 @@ class MessagePump:
             self,
             interval,
             self,
-            name=name,
+            name=name or f"set_interval#{Timer._timer_count}",
             callback=callback,
             repeat=repeat or None,
             pause=pause,

@@ -657,6 +657,7 @@ class App(Generic[ReturnType], DOMNode):
         self._exit_renderables.clear()
 
     async def process_messages(self) -> None:
+
         self._set_active()
 
         if self.devtools_enabled:

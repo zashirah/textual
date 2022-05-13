@@ -7,13 +7,14 @@ import sys
 from math import ceil
 from pathlib import Path
 from time import monotonic
-from typing import AsyncContextManager, cast, ContextManager, Callable
+from typing import AsyncContextManager, cast, ContextManager
 from unittest import mock
 
 from rich.console import Console
 
 from textual import events
 from textual.app import App, ComposeResult
+from textual._context import active_app
 from textual.driver import Driver
 from textual.geometry import Size
 
@@ -85,15 +86,14 @@ class AppTest(App):
 
         @contextlib.asynccontextmanager
         async def get_running_state_context_manager():
-            self._set_active()
-
             with mock_textual_timers(
                 ticks_granularity_fps=time_mocking_ticks_granularity_fps
-            ) as move_time_forward:
+            ) as move_clock_forward:
                 run_task = asyncio.create_task(run_app())
-                await asyncio.sleep(0.001)
+                self._set_active()
+                # Let's give some time to various asyncio-bound stuff to do their stuff:
                 # timeout_before_yielding_task = asyncio.create_task(
-                #     asyncio.sleep(waiting_duration_after_initialisation)
+                #     asyncio.sleep(0.1)
                 # )
                 # done, pending = await asyncio.wait(
                 #     (
@@ -107,28 +107,23 @@ class AppTest(App):
                 #         "TestApp is no longer running after its initialization period"
                 #     )
 
-                await move_time_forward(seconds=waiting_duration_after_initialisation)
+                # await asyncio.sleep(0.01)
 
+                await move_clock_forward(seconds=1)
+
+                await move_clock_forward(seconds=waiting_duration_after_initialisation)
                 assert self._driver is not None
 
-                self.force_screen_update()
+                await self.force_screen_update()
 
-                yield move_time_forward
+                yield move_clock_forward
 
-                await move_time_forward(seconds=waiting_duration_after_yield)
+                await move_clock_forward(seconds=waiting_duration_after_yield)
 
-                self.force_screen_update()
-                # waiting_duration = max(
-                #     waiting_duration_post_yield or 0,
-                #     self.screen._update_timer._interval,
-                # )
-                # await asyncio.sleep(waiting_duration)
-
-                # if force_timers_tick_after_yield:
-                #     await textual_timers_force_tick()
+                await self.force_screen_update()
 
                 assert not run_task.done()
-                await self.shutdown()
+            await self.shutdown()
 
         return get_running_state_context_manager()
 
@@ -145,12 +140,15 @@ class AppTest(App):
         ):
             pass
 
-    def force_screen_update(self, *, repaint: bool = True, layout: bool = True) -> None:
+    async def force_screen_update(self, *, repaint: bool = True, layout: bool = True) -> None:
         try:
-            self.screen.refresh(repaint=repaint, layout=layout)
-            self.screen._on_update()
+            screen = self.screen
         except IndexError:
-            pass  # the app may not have a screen yet
+            return  # the app may not have a screen yet
+        screen.refresh(repaint=repaint, layout=layout)
+        screen._on_update()
+
+        await asyncio.sleep(0.001)
 
     def on_exception(self, error: Exception) -> None:
         # In tests we want the errors to be raised, rather than printed to a Console
@@ -160,6 +158,10 @@ class AppTest(App):
         raise NotImplementedError(
             "Use `async with my_test_app.in_running_state()` rather than `my_test_app.run()`"
         )
+
+    @property
+    def active_app(self) -> App | None:
+        return active_app.get()
 
     @property
     def total_capture(self) -> str | None:
@@ -248,11 +250,17 @@ def mock_textual_timers(
             target_event_monotonic_time = current_time + duration
             pending_sleep_events.append((target_event_monotonic_time, event))
             # Ok, let's wait for this Event
-            # - which can only be "unlocked" by calls to `move_clock_forward()`
+            # (which can only be "unlocked" by calls to `move_clock_forward()`)
             await event.wait()
 
         # Our replacement for "textual._timer.Timer.get_time" and "textual.message.Message._get_time":
         def get_time_mock() -> float:
+            nonlocal current_time
+
+            # let's make the time advance slightly between 2 consecutive calls of this function,
+            # within the same order of magnitude than 2 consecutive calls to ` timer.monotonic()`:
+            current_time += 1.1e-06
+
             return current_time
 
         async def move_clock_forward(*, seconds: float) -> tuple[float, int]:
@@ -262,11 +270,12 @@ def mock_textual_timers(
             activated_timers_count_total = 0
             for tick_counter in range(ticks_count):
                 current_time += single_tick_duration
-                activated_timers_count_total += check_sleep_timers_to_activate()
+                activated_timers_count = check_sleep_timers_to_activate()
+                activated_timers_count_total += activated_timers_count
 
             # Let's give an opportunity to asyncio-related stuff to happen,
-            # now that we unlocked some occurrences of `await sleep(duration)`:
-            await asyncio.sleep(0.0001)
+            # now that we likely unlocked some occurrences of `await sleep(duration)`:
+            await asyncio.sleep(0.001)
 
             return current_time, activated_timers_count_total
 
@@ -277,8 +286,8 @@ def mock_textual_timers(
             for i, (target_event_monotonic_time, event) in enumerate(
                 pending_sleep_events
             ):
-                if target_event_monotonic_time < current_time:
-                    continue
+                if current_time < target_event_monotonic_time:
+                    continue # not time for you yet, dear awaiter...
                 # Right, let's release this waiting event!
                 event.set()
                 activated_timers_count += 1
