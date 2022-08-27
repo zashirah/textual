@@ -56,7 +56,6 @@ def resolve(
         )
 
     fraction_gutter = Fraction(gutter)
-
     offsets = [0] + [
         fraction.__floor__()
         for fraction in accumulate(
@@ -65,16 +64,11 @@ def resolve(
             for value in (fraction, fraction_gutter)
         )
     ]
+    results = [
+        (offset1, offset2 - offset1)
+        for offset1, offset2 in zip(offsets[::2], offsets[1::2])
+    ]
 
-    results = list(
-        zip(
-            offsets[::2],
-            [
-                offset2 - offset1
-                for offset1, offset2 in zip(offsets[::2], offsets[1::2])
-            ],
-        )
-    )
     return results
 
 
