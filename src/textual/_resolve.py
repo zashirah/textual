@@ -47,7 +47,7 @@ def resolve(
         remaining = max(Fraction(0), Fraction(total - total_gutter) - consumed)
         fraction_unit = Fraction(remaining, total_fraction)
         resolved_fractions = [
-            (from_float(scalar.value) * fraction_unit if fraction is None else fraction)
+            from_float(scalar.value) * fraction_unit if fraction is None else fraction
             for scalar, fraction in resolved
         ]
     else:
