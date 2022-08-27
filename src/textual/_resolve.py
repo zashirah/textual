@@ -32,23 +32,25 @@ def resolve(
         scalar if scalar.is_fraction else scalar.resolve_dimension(size, viewport)
         for scalar in dimensions
     ]
+    _Fraction = Fraction
+    _Scalar = Scalar
     from_float = Fraction.from_float
     total_fraction = from_float(
-        sum(dimension.value for dimension in resolved if isinstance(dimension, Scalar))
+        sum(dimension.value for dimension in resolved if isinstance(dimension, _Scalar))
     )
 
     if total_fraction:
         total_gutter = gutter * (len(dimensions) - 1)
         consumed = sum(
-            dimension for dimension in resolved if isinstance(dimension, Fraction)
+            dimension for dimension in resolved if isinstance(dimension, _Fraction)
         )
-        remaining = max(Fraction(0), Fraction(total - total_gutter) - consumed)
+        remaining = max(_Fraction(0), _Fraction(total - total_gutter) - consumed)
         if remaining:
-            fraction_unit = Fraction(remaining, total_fraction)
+            fraction_unit = _Fraction(remaining, total_fraction)
             resolved = [
                 (
                     from_float(dimension.value) * fraction_unit
-                    if isinstance(dimension, Scalar)
+                    if isinstance(dimension, _Scalar)
                     else dimension
                 )
                 for dimension in resolved
@@ -57,7 +59,7 @@ def resolve(
     resolved_fractions: list[Fraction] = cast("list[Fraction]", resolved)
     fraction_gutter = Fraction(gutter)
     offsets = [0] + [
-        int(fraction)
+        fraction.__floor__()
         for fraction in accumulate(
             value
             for fraction in resolved_fractions
