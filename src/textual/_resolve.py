@@ -49,9 +49,12 @@ def resolve(
             fraction_unit = Fraction(remaining, total_fraction)
             resolved = [
                 (
-                    (scalar, from_float(scalar.value) * fraction_unit)
-                    if fraction is None
-                    else (scalar, fraction)
+                    scalar,
+                    (
+                        from_float(scalar.value) * fraction_unit
+                        if fraction is None
+                        else fraction
+                    ),
                 )
                 for scalar, fraction in resolved
             ]
