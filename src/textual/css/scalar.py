@@ -354,8 +354,7 @@ def percentage_string_to_float(string: str) -> float:
     """
     string = string.strip()
     if string.endswith("%"):
-        percentage = string[:-1]
-        float_percentage = clamp(float(percentage) / 100, 0, 1)
+        float_percentage = clamp(float(string[:-1]) / 100.0, 0.0, 1.0)
     else:
         float_percentage = float(string)
     return float_percentage
