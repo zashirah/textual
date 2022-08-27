@@ -30,9 +30,8 @@ def resolve(
 
     resolved: list[tuple[Scalar, Fraction | None]] = [
         (
-            (scalar, None)
-            if scalar.is_fraction
-            else (scalar, scalar.resolve_dimension(size, viewport))
+            scalar,
+            (None if scalar.is_fraction else scalar.resolve_dimension(size, viewport)),
         )
         for scalar in dimensions
     ]
