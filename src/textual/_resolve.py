@@ -28,36 +28,37 @@ def resolve(
         list[tuple[int, int]]: List of (<OFFSET>, <LENGTH>)
     """
 
-    resolved: list[Fraction | Scalar] = [
-        scalar if scalar.is_fraction else scalar.resolve_dimension(size, viewport)
+    resolved: list[tuple[Scalar, Fraction | None]] = [
+        (
+            (scalar, None)
+            if scalar.is_fraction
+            else (scalar, scalar.resolve_dimension(size, viewport))
+        )
         for scalar in dimensions
     ]
-    _Fraction = Fraction
-    _Scalar = Scalar
+
     from_float = Fraction.from_float
     total_fraction = from_float(
-        sum(dimension.value for dimension in resolved if isinstance(dimension, _Scalar))
+        sum(scalar.value for scalar, fraction in resolved if fraction is None)
     )
 
     if total_fraction:
         total_gutter = gutter * (len(dimensions) - 1)
-        consumed = sum(
-            dimension for dimension in resolved if isinstance(dimension, _Fraction)
-        )
-        remaining = max(_Fraction(0), _Fraction(total - total_gutter) - consumed)
+        consumed = sum(fraction for _, fraction in resolved if fraction is not None)
+        remaining = max(Fraction(0), Fraction(total - total_gutter) - consumed)
         if remaining:
-            fraction_unit = _Fraction(remaining, total_fraction)
+            fraction_unit = Fraction(remaining, total_fraction)
             resolved = [
                 (
-                    from_float(dimension.value) * fraction_unit
-                    if isinstance(dimension, _Scalar)
-                    else dimension
+                    (scalar, from_float(scalar.value) * fraction_unit)
+                    if fraction is None
+                    else (scalar, fraction)
                 )
-                for dimension in resolved
+                for scalar, fraction in resolved
             ]
 
-    resolved_fractions: list[Fraction] = cast("list[Fraction]", resolved)
     fraction_gutter = Fraction(gutter)
+    resolved_fractions = cast("list[Fraction]", [fraction for _, fraction in resolved])
     offsets = [0] + [
         fraction.__floor__()
         for fraction in accumulate(
