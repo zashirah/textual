@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from itertools import accumulate
 from fractions import Fraction
+from itertools import accumulate
 from typing import cast
 
-from .geometry import Size
 from .css.scalar import Scalar
+from .geometry import Size
 
 
 def resolve(
