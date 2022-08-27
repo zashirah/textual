@@ -45,22 +45,18 @@ def resolve(
         total_gutter = gutter * (len(dimensions) - 1)
         consumed = sum(fraction for _, fraction in resolved if fraction is not None)
         remaining = max(Fraction(0), Fraction(total - total_gutter) - consumed)
-        if remaining:
-            fraction_unit = Fraction(remaining, total_fraction)
-            resolved = [
-                (
-                    scalar,
-                    (
-                        from_float(scalar.value) * fraction_unit
-                        if fraction is None
-                        else fraction
-                    ),
-                )
-                for scalar, fraction in resolved
-            ]
+        fraction_unit = Fraction(remaining, total_fraction)
+        resolved_fractions = [
+            (from_float(scalar.value) * fraction_unit if fraction is None else fraction)
+            for scalar, fraction in resolved
+        ]
+    else:
+        resolved_fractions = cast(
+            "list[Fraction]", [fraction for _, fraction in resolved]
+        )
 
     fraction_gutter = Fraction(gutter)
-    resolved_fractions = cast("list[Fraction]", [fraction for _, fraction in resolved])
+
     offsets = [0] + [
         fraction.__floor__()
         for fraction in accumulate(
