@@ -1,0 +1,38 @@
+Screen { 
+   background: $panel;
+}
+
+TextInput {
+   border: tall $background;
+   width: 2fr;
+   height: 1;
+   padding: 0 1;
+   background: $boost;
+}
+
+TextInput:focus {
+   border: tall $accent;
+}
+
+Button {
+   width:1fr;
+   height:1;
+}
+
+#search {
+   dock:top;
+   height:auto;
+   padding: 1 1;
+}
+
+#results {
+   width: auto;
+   min-height: 100%;
+}
+
+#results-container {
+   background: $background 50%;
+   overflow: auto;
+   margin: 1 2;
+   height: 100%;
+}
